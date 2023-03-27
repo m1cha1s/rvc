@@ -1,53 +1,127 @@
 #ifndef RVC_H
 #define RVC_H
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 
-struct MemBus
+const char *RVABI[32] = {
+    "zero",
+    "ra",
+    "sp",
+    "gp",
+    "tp",
+    "t0",
+    "t1",
+    "t2",
+    "s0",
+    "s1",
+    "a0",
+    "a1",
+    "a2",
+    "a3",
+    "a4",
+    "a5",
+    "a6",
+    "a7",
+    "s2",
+    "s3",
+    "s4",
+    "s5",
+    "s6",
+    "s7",
+    "s8",
+    "s9",
+    "s10",
+    "s11",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+};
+
+typedef void (*RvcLogPrint)(char *);
+
+typedef uint8_t (*RvcMemBusLoad)(void *meta, uint64_t addr);
+typedef void (*RvcMemBusStore)(void *meta, uint64_t addr, uint8_t val);
+
+typedef struct RvcMemBus
 {
     uint64_t base, len;
     void *meta;
-    uint8_t (*load)(void *meta, uint64_t addr);
-    void (*store)(void *meta, uint64_t addr, uint8_t val);
-};
+    RvcMemBusLoad load;
+    RvcMemBusStore store;
+} RvcMemBus;
 
-struct RvcState
+typedef struct RvcState
 {
     uint64_t x[32];
     uint64_t pc;
-    struct MemBus *bus; // NULL terminated
-};
+    RvcMemBus *bus;  // NULL terminated
+    RvcLogPrint log; // NULL for disabled
+} RvcState;
 
-uint64_t load(struct RvcState *state, uint64_t addr, uint8_t size)
+void RvcLog(RvcState *state, const char *fmt, ...)
 {
-    struct MemBus *bus = state->bus;
+    if (!state->log)
+        return;
+
+    char str[256] = {0};
+
+    va_list ap;
+    va_start(ap, fmt);
+
+    vsprintf(str, fmt, ap);
+
+    va_end(ap);
+
+    state->log(str);
+}
+
+void RvcLogRegs(RvcState *state)
+{
+    if (!state->log)
+        return;
+
+    RvcLog(state, "Registers:\n");
+
+    for (int i = 0; i < 32; i += 2)
+    {
+        RvcLog(state, " | %s: %#016x | %s: %#016x |\n", RVABI[i], state->x[i], RVABI[i + 1], state->x[i + 1]);
+    }
+}
+
+static uint64_t RvcLoad(RvcState *state, uint64_t addr, uint8_t size)
+{
+    RvcMemBus *bus = state->bus;
+
     while (bus)
     {
-        if (!(addr >= bus->base && addr < (bus->base + bus->len)))
+        if (!((addr >= bus->base && addr < (bus->base + bus->len)) || !bus->load))
         {
             bus++;
             continue;
         }
+        // Please don't look at the nightmare below :(
         switch (size)
         {
         case 8:
             return (uint64_t)bus->load(bus->meta, addr);
         case 16:
-            return (uint64_t)(bus->load(bus->meta, (addr)) || (bus->load(bus->meta, (addr + 1)) << 8));
+            return (uint64_t)((uint64_t)bus->load(bus->meta, (addr)) | ((uint64_t)bus->load(bus->meta, (addr + 1)) << 8));
         case 32:
-            return (uint64_t)(bus->load(bus->meta, (addr)) || (bus->load(bus->meta, (addr + 1)) << 8) || (bus->load(bus->meta, (addr + 2)) << 16) || (bus->load(bus->meta, (addr + 3)) << 24));
+            return (uint64_t)((uint64_t)bus->load(bus->meta, (addr)) | ((uint64_t)bus->load(bus->meta, (addr + 1)) << 8) | ((uint64_t)bus->load(bus->meta, (addr + 2)) << 16) | ((uint64_t)bus->load(bus->meta, (addr + 3)) << 24));
         case 64:
-            return (uint64_t)(bus->load(bus->meta, (addr)) || (bus->load(bus->meta, (addr + 1)) << 8) || (bus->load(bus->meta, (addr + 2)) << 16) || (bus->load(bus->meta, (addr + 3)) << 24) || (bus->load(bus->meta, (addr + 4)) << 32) || (bus->load(bus->meta, (addr + 5)) << 40) || (bus->load(bus->meta, (addr + 6)) << 48) || (bus->load(bus->meta, (addr + 7)) << 56));
+            return (uint64_t)((uint64_t)bus->load(bus->meta, (addr)) | ((uint64_t)bus->load(bus->meta, (addr + 1)) << 8) | ((uint64_t)bus->load(bus->meta, (addr + 2)) << 16) | ((uint64_t)bus->load(bus->meta, (addr + 3)) << 24) | ((uint64_t)bus->load(bus->meta, (addr + 4)) << 32) | ((uint64_t)bus->load(bus->meta, (addr + 5)) << 40) | ((uint64_t)bus->load(bus->meta, (addr + 6)) << 48) | ((uint64_t)bus->load(bus->meta, (addr + 7)) << 56));
         default:
             // FIXME: This should cause a trap
             return 0;
         }
     }
     // FIXME: If we get here we trap
+    return 0;
 }
 
-void store(struct RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
+static void RvcStore(RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
 {
     uint8_t b0, b1, b2, b3, b4, b5, b6, b7;
 
@@ -60,10 +134,10 @@ void store(struct RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
     b6 = (val >> 48) & 0xff;
     b7 = (val >> 56) & 0xff;
 
-    struct MemBus *bus - state->bus;
+    RvcMemBus *bus = state->bus;
     while (bus)
     {
-        if (!(addr >= bus->base && addr < (bus->base + bus->len)))
+        if (!((addr >= bus->base && addr < (bus->base + bus->len)) || !bus->store))
         {
             bus++;
             continue;
@@ -101,12 +175,49 @@ void store(struct RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
     // FIXME: If we get here we trap
 }
 
-int32_t RvcStep(struct RvcState *state, uint32_t elapsed_us)
+int32_t RvcStep(RvcState *state, uint32_t elapsed_us)
 {
+    // Fetch
+    uint32_t inst = RvcLoad(state, state->pc, 32);
+
+    // Zero the zero register
     state->x[0] = 0;
 
-    uint32_t inst = load(state->pc, 32);
-    printf("Inst: %#08x\n", inst);
+    // Split the instruction
+    uint8_t opcode = inst & 0x7f;
+    uint8_t rd = (inst >> 7) & 0x1f;
+    uint8_t rs1 = (inst >> 15) & 0x1f;
+    uint8_t rs2 = (inst >> 20) & 0x1f;
+    uint8_t func4 = (inst >> 12) & 0x7;
+    uint8_t func7 = (inst >> 25) & 0x7f;
+
+    // RvcLog(state, "Opcode: %#02x\n", opcode);
+
+    switch (opcode)
+    {
+    // addi
+    case 0x13:
+    {
+        uint64_t imm = (uint64_t)((int64_t)(inst & 0xfff00000) >> 20);
+        state->x[rd] = state->x[rs1] + imm;
+        RvcLog(state, "addi %s, %s, %d\n", RVABI[rd], RVABI[rs1], imm);
+        break;
+    }
+    // add
+    case 0x33:
+    {
+        state->x[rd] = state->x[rs1] + state->x[rs2];
+        RvcLog(state, "add %s, %s, %s\n", RVABI[rd], RVABI[rs1], RVABI[rs2]);
+        break;
+    }
+    default:
+        RvcLog(state, "UNKNOWN OPCODE\n");
+        break;
+    }
+
+    // RvcLogRegs(state);
+
+    return 0;
 }
 
 #endif
