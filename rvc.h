@@ -61,6 +61,12 @@ typedef struct RvcState
     int log_level;
 } RvcState;
 
+typedef enum RvcStatus
+{
+    Ok,
+    UnknownInstruction,
+} RvcStatus;
+
 static void RvcLog(RvcState *state, int min_log_level, const char *fmt, ...)
 {
     if (!state->log || state->log_level < min_log_level)
@@ -175,12 +181,6 @@ static void RvcStore(RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
     }
     // FIXME: If we get here we trap
 }
-
-typedef enum RvcStatus
-{
-    Ok,
-    UnknownInstruction,
-} RvcStatus;
 
 RvcStatus RvcStep(RvcState *state, uint32_t elapsed_us)
 {
