@@ -4,10 +4,6 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-#ifndef LOG_LEVEL
-#define LOG_LEVEL 3
-#endif
-
 const char *RVABI[32] = {
     "zero",
     "ra",
@@ -62,11 +58,12 @@ typedef struct RvcState
     uint64_t pc;
     RvcMemBus *bus;  // NULL terminated
     RvcLogPrint log; // NULL for disabled
+    int log_level;
 } RvcState;
 
-void RvcLog(RvcState *state, const char *fmt, ...)
+void RvcLog(RvcState *state, int min_log_level, const char *fmt, ...)
 {
-    if (!state->log)
+    if (!state->log || state->log_level < min_log_level)
         return;
 
     char str[256] = {0};
@@ -81,16 +78,16 @@ void RvcLog(RvcState *state, const char *fmt, ...)
     state->log(str);
 }
 
-void RvcLogRegs(RvcState *state)
+void RvcLogRegs(RvcState *state, int min_log_level)
 {
-    if (!state->log)
+    if (!state->log || state->log_level < min_log_level)
         return;
 
-    RvcLog(state, "Registers:\n");
+    RvcLog(state, min_log_level, "Registers:\n");
 
     for (int i = 0; i < 32; i += 2)
     {
-        RvcLog(state, " | %s: %#016x | %s: %#016x |\n", RVABI[i], state->x[i], RVABI[i + 1], state->x[i + 1]);
+        RvcLog(state, min_log_level, " | %s: %#016x | %s: %#016x |\n", RVABI[i], state->x[i], RVABI[i + 1], state->x[i + 1]);
     }
 }
 
@@ -179,7 +176,13 @@ static void RvcStore(RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
     // FIXME: If we get here we trap
 }
 
-int32_t RvcStep(RvcState *state, uint32_t elapsed_us)
+typedef enum RvcStatus
+{
+    Ok,
+    UnknownInstruction,
+} RvcStatus;
+
+RvcStatus RvcStep(RvcState *state, uint32_t elapsed_us)
 {
     // Fetch
     uint32_t inst = RvcLoad(state, state->pc, 32);
@@ -195,9 +198,7 @@ int32_t RvcStep(RvcState *state, uint32_t elapsed_us)
     uint8_t func4 = (inst >> 12) & 0x7;
     uint8_t func7 = (inst >> 25) & 0x7f;
 
-#if LOG_LEVEL >= 2
-    RvcLog(state, "Opcode: %#02x\n", opcode);
-#endif
+    RvcLog(state, 2, "Opcode: %#02x\n", opcode);
 
     switch (opcode)
     {
@@ -207,9 +208,7 @@ int32_t RvcStep(RvcState *state, uint32_t elapsed_us)
         uint64_t imm = (uint64_t)((int64_t)(inst & 0xfff00000) >> 20);
         state->x[rd] = state->x[rs1] + imm;
 
-#if LOG_LEVEL >= 1
-        RvcLog(state, "addi %s, %s, %d\n", RVABI[rd], RVABI[rs1], imm);
-#endif
+        RvcLog(state, 1, "addi %s, %s, %d\n", RVABI[rd], RVABI[rs1], imm);
 
         break;
     }
@@ -218,23 +217,20 @@ int32_t RvcStep(RvcState *state, uint32_t elapsed_us)
     {
         state->x[rd] = state->x[rs1] + state->x[rs2];
 
-#if LOG_LEVEL >= 1
-        RvcLog(state, "add %s, %s, %s\n", RVABI[rd], RVABI[rs1], RVABI[rs2]);
-#endif
+        RvcLog(state, 1, "add %s, %s, %s\n", RVABI[rd], RVABI[rs1], RVABI[rs2]);
+
         break;
     }
     default:
-#if LOG_LEVEL >= 1
-        RvcLog(state, "UNKNOWN OPCODE\n");
-#endif
-        break;
+
+        RvcLog(state, 1, "UNKNOWN OPCODE\n");
+
+        return UnknownInstruction;
     }
 
-#if LOG_LEVEL >= 3
-    RvcLogRegs(state);
-#endif
+    RvcLogRegs(state, 3);
 
-    return 0;
+    return Ok;
 }
 
 #endif

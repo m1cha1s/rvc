@@ -19,12 +19,16 @@ void stdlog(char *str)
     printf("%s", str);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+
     uint64_t len = 0;
     FILE *file;
 
-    file = fopen("test_progs/add-addi.bin", "rb");
+    if (argc == 1)
+        file = fopen("test_progs/add-addi.bin", "rb");
+    else
+        file = fopen(argv[1], "rb");
 
     if (!file)
     {
@@ -43,8 +47,9 @@ int main()
 
     RvcState state = (RvcState){
         .bus = bus,
-        .log = stdlog,
         .pc = 0,
+        .log = stdlog,
+        .log_level = 1,
     };
 
     for (int i = 0; i < 3; i++)

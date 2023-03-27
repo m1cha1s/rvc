@@ -7,13 +7,16 @@ rvc_cli: main.o
 %.c: %.o
 	$(CC) $(CFLAGS) -c $^ -o $@
 
-.PHONY: run clean clean_test_progs clean_all rebuild test_progs watch
+.PHONY: run run_tests clean clean_test_progs clean_all rebuild test_progs watch
 
 test_progs:
 	make -C test_progs all
 
-run: rvc_cli
+run: rvc_cli test_progs
 	./rvc_cli
+
+run_tests: rvc_cli test_progs
+	./rvc_cli test_progs/add-addi.bin
 
 rebuild: clean rvc_cli
 
