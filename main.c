@@ -52,9 +52,10 @@ int main(int argc, char *argv[])
         .log_level = 1,
     };
 
-    for (int i = 0; i < 3; i++)
+    while (1)
     {
-        RvcStep(&state, 0);
+        if (RvcStep(&state, 0) != Ok)
+            break;
     }
 
     return 0;
