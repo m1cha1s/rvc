@@ -1,1 +1,0 @@
-fswatch -0 -v -o ./rvc.h -o ./main.c | xargs -0 -n 1 -I {} make rebuild
