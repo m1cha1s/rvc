@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-const char *RVABI[32] = {
+static const char *RVABI[32] = {
     "zero",
     "ra",
     "sp",
@@ -61,7 +61,7 @@ typedef struct RvcState
     int log_level;
 } RvcState;
 
-void RvcLog(RvcState *state, int min_log_level, const char *fmt, ...)
+static void RvcLog(RvcState *state, int min_log_level, const char *fmt, ...)
 {
     if (!state->log || state->log_level < min_log_level)
         return;
@@ -78,7 +78,7 @@ void RvcLog(RvcState *state, int min_log_level, const char *fmt, ...)
     state->log(str);
 }
 
-void RvcLogRegs(RvcState *state, int min_log_level)
+static void RvcLogRegs(RvcState *state, int min_log_level)
 {
     if (!state->log || state->log_level < min_log_level)
         return;

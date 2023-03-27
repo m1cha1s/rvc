@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     rewind(file);
 
     RvcMemBus bus[] = {
-        {.base = 0, .len = len, .load = load, .meta = (void *)file, .store = NULL},
+        {.base = 0, .len = len, .load = load, .store = NULL, .meta = (void *)file},
         (RvcMemBus){NULL},
     };
 
