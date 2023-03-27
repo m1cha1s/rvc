@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+#ifndef LOG_LEVEL
+#define LOG_LEVEL 3
+#endif
+
 const char *RVABI[32] = {
     "zero",
     "ra",
@@ -191,7 +195,9 @@ int32_t RvcStep(RvcState *state, uint32_t elapsed_us)
     uint8_t func4 = (inst >> 12) & 0x7;
     uint8_t func7 = (inst >> 25) & 0x7f;
 
-    // RvcLog(state, "Opcode: %#02x\n", opcode);
+#if LOG_LEVEL >= 2
+    RvcLog(state, "Opcode: %#02x\n", opcode);
+#endif
 
     switch (opcode)
     {
@@ -200,22 +206,33 @@ int32_t RvcStep(RvcState *state, uint32_t elapsed_us)
     {
         uint64_t imm = (uint64_t)((int64_t)(inst & 0xfff00000) >> 20);
         state->x[rd] = state->x[rs1] + imm;
+
+#if LOG_LEVEL >= 1
         RvcLog(state, "addi %s, %s, %d\n", RVABI[rd], RVABI[rs1], imm);
+#endif
+
         break;
     }
     // add
     case 0x33:
     {
         state->x[rd] = state->x[rs1] + state->x[rs2];
+
+#if LOG_LEVEL >= 1
         RvcLog(state, "add %s, %s, %s\n", RVABI[rd], RVABI[rs1], RVABI[rs2]);
+#endif
         break;
     }
     default:
+#if LOG_LEVEL >= 1
         RvcLog(state, "UNKNOWN OPCODE\n");
+#endif
         break;
     }
 
-    // RvcLogRegs(state);
+#if LOG_LEVEL >= 3
+    RvcLogRegs(state);
+#endif
 
     return 0;
 }

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// #define LOG_LEVEL 1
+
 #include "rvc.h"
 
 uint8_t load(void *file, uint64_t addr)
