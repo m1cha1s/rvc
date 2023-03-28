@@ -1,1 +1,61 @@
 # rvc
+
+## TODO:
+- [ ] Opcodes
+    - [ ] RV32I
+        - [ ] AUIPC
+        - [ ] JAL
+        - [ ] JALR
+        - [ ] BEQ
+        - [ ] BNE
+        - [ ] BLT
+        - [ ] BGE
+        - [ ] BLTU
+        - [ ] BGEU
+        - [ ] LB
+        - [ ] LH
+        - [ ] LW
+        - [ ] LBU
+        - [ ] LHU
+        - [ ] SB
+        - [ ] SH
+        - [ ] SW
+        - [ ] ADDI
+        - [ ] SLTI
+        - [ ] SLTIU
+        - [ ] XORI
+        - [ ] ORI
+        - [ ] ANDI
+        - [ ] SLLI
+        - [ ] SRLI
+        - [ ] SRAI
+        - [ ] ADD
+        - [ ] SUB
+        - [ ] SLL
+        - [ ] SLT
+        - [ ] SLTU
+        - [ ] XOR
+        - [ ] SRL
+        - [ ] SRA
+        - [ ] OR
+        - [ ] AND
+        - [ ] FENCE
+        - [ ] ECALL
+        - [ ] EBREAK
+    - [ ] RV64I
+        - [ ] LWU
+        - [ ] LD 
+        - [ ] SD
+        - [ ] SLLI
+        - [ ] SRLI
+        - [ ] SRAI
+        - [ ] ADDIW
+        - [ ] SLLIW
+        - [ ] SRLIW
+        - [ ] SRAIW
+        - [ ] ADDW
+        - [ ] SUBW
+        - [ ] SLLW
+        - [ ] SRLW
+        - [ ] SRAW
+### possibly more?
