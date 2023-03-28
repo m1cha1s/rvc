@@ -76,7 +76,7 @@ typedef struct _RvcState
     uint64_t x[32];
     uint64_t pc;
 
-    RvcMemBus *bus; // NULL terminated
+    RvcMemBus **bus; // NULL terminated
 
     RvcLogPrint log; // NULL for disabled
     RvcLogFlags logFlags;
@@ -120,26 +120,51 @@ static void RvcLogRegs(RvcState *state, uint8_t flags)
 
 static uint64_t RvcLoad(RvcState *state, uint64_t addr, uint8_t size)
 {
-    RvcMemBus *bus = state->bus;
+    RvcMemBus **bus = state->bus;
 
-    while (bus)
+    while (*bus)
     {
-        if (!((addr >= bus->base && addr < (bus->base + bus->len)) || !bus->load))
+        if (!((addr >= (*bus)->base) && ((addr + (size / 8) - 1) < ((*bus)->base + (*bus)->len))) || !((*bus)->load))
         {
             bus++;
             continue;
         }
+
         // Please don't look at the nightmare below :(
         switch (size)
         {
         case 8:
-            return (uint64_t)bus->load(bus->meta, addr);
+            return (uint64_t)(*bus)->load((*bus)->meta, addr);
         case 16:
-            return (uint64_t)((uint64_t)bus->load(bus->meta, (addr)) | ((uint64_t)bus->load(bus->meta, (addr + 1)) << 8));
+        {
+            uint64_t b0 = (uint64_t)(*bus)->load((*bus)->meta, (addr));
+            uint64_t b1 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 1)) << 8);
+
+            return b0 | b1;
+        }
         case 32:
-            return (uint64_t)((uint64_t)bus->load(bus->meta, (addr)) | ((uint64_t)bus->load(bus->meta, (addr + 1)) << 8) | ((uint64_t)bus->load(bus->meta, (addr + 2)) << 16) | ((uint64_t)bus->load(bus->meta, (addr + 3)) << 24));
+        {
+            uint64_t b0 = (uint64_t)(*bus)->load((*bus)->meta, (addr));
+            uint64_t b1 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 1)) << 8);
+            uint64_t b2 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 2)) << 16);
+            uint64_t b3 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 3)) << 24);
+
+            return b0 | b1 | b2 | b3;
+        }
+
         case 64:
-            return (uint64_t)((uint64_t)bus->load(bus->meta, (addr)) | ((uint64_t)bus->load(bus->meta, (addr + 1)) << 8) | ((uint64_t)bus->load(bus->meta, (addr + 2)) << 16) | ((uint64_t)bus->load(bus->meta, (addr + 3)) << 24) | ((uint64_t)bus->load(bus->meta, (addr + 4)) << 32) | ((uint64_t)bus->load(bus->meta, (addr + 5)) << 40) | ((uint64_t)bus->load(bus->meta, (addr + 6)) << 48) | ((uint64_t)bus->load(bus->meta, (addr + 7)) << 56));
+        {
+            uint64_t b0 = (uint64_t)(*bus)->load((*bus)->meta, (addr));
+            uint64_t b1 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 1)) << 8);
+            uint64_t b2 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 2)) << 16);
+            uint64_t b3 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 3)) << 24);
+            uint64_t b4 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 4)) << 32);
+            uint64_t b5 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 5)) << 40);
+            uint64_t b6 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 6)) << 48);
+            uint64_t b7 = ((uint64_t)(*bus)->load((*bus)->meta, (addr + 7)) << 56);
+
+            return b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7;
+        }
         default:
             // FIXME: This should cause a trap
             return 0;
@@ -162,10 +187,10 @@ static void RvcStore(RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
     b6 = (val >> 48) & 0xff;
     b7 = (val >> 56) & 0xff;
 
-    RvcMemBus *bus = state->bus;
-    while (bus)
+    RvcMemBus **bus = state->bus;
+    while (*bus)
     {
-        if (!((addr >= bus->base && addr < (bus->base + bus->len)) || !bus->store))
+        if (!(addr >= (*bus)->base && (addr + (size / 8) - 1) < ((*bus)->base + (*bus)->len)) || !((*bus)->store))
         {
             bus++;
             continue;
@@ -173,27 +198,27 @@ static void RvcStore(RvcState *state, uint64_t addr, uint64_t val, uint8_t size)
         switch (size)
         {
         case 8:
-            bus->store(bus->meta, addr, b0);
+            (*bus)->store((*bus)->meta, addr, b0);
             break;
         case 16:
-            bus->store(bus->meta, addr, b0);
-            bus->store(bus->meta, addr + 1, b1);
+            (*bus)->store((*bus)->meta, addr, b0);
+            (*bus)->store((*bus)->meta, addr + 1, b1);
             break;
         case 32:
-            bus->store(bus->meta, addr, b0);
-            bus->store(bus->meta, addr + 1, b1);
-            bus->store(bus->meta, addr + 2, b2);
-            bus->store(bus->meta, addr + 3, b3);
+            (*bus)->store((*bus)->meta, addr, b0);
+            (*bus)->store((*bus)->meta, addr + 1, b1);
+            (*bus)->store((*bus)->meta, addr + 2, b2);
+            (*bus)->store((*bus)->meta, addr + 3, b3);
             break;
         case 64:
-            bus->store(bus->meta, addr, b0);
-            bus->store(bus->meta, addr + 1, b1);
-            bus->store(bus->meta, addr + 2, b2);
-            bus->store(bus->meta, addr + 3, b3);
-            bus->store(bus->meta, addr + 4, b4);
-            bus->store(bus->meta, addr + 5, b5);
-            bus->store(bus->meta, addr + 6, b6);
-            bus->store(bus->meta, addr + 7, b7);
+            (*bus)->store((*bus)->meta, addr, b0);
+            (*bus)->store((*bus)->meta, addr + 1, b1);
+            (*bus)->store((*bus)->meta, addr + 2, b2);
+            (*bus)->store((*bus)->meta, addr + 3, b3);
+            (*bus)->store((*bus)->meta, addr + 4, b4);
+            (*bus)->store((*bus)->meta, addr + 5, b5);
+            (*bus)->store((*bus)->meta, addr + 6, b6);
+            (*bus)->store((*bus)->meta, addr + 7, b7);
             break;
         default:
             // FIXME: This should cause a trap
@@ -207,6 +232,7 @@ RvcStatus RvcStep(RvcState *state, uint32_t elapsed_us)
 {
     // Fetch
     uint32_t inst = RvcLoad(state, state->pc, 32);
+    state->pc += 4;
 
     // Zero the zero register
     state->x[0] = 0;
@@ -219,14 +245,18 @@ RvcStatus RvcStep(RvcState *state, uint32_t elapsed_us)
     uint8_t func4 = (inst >> 12) & 0x7;
     uint8_t func7 = (inst >> 25) & 0x7f;
 
-    RvcLog(state, LOG_DECODE && LOG_VERBOSE, "Opcode: %#02x\n", opcode);
+    RvcLog(state, LOG_DECODE && LOG_VERBOSE, "opcode: %#02x, rd: %d, rs1: %d, rs2: %d, func4: %d, func7: %d\n", opcode, rd, rs1, rs2, func4, func7);
+    RvcLog(state, LOG_DECODE, "%#08x    ", state->pc - 4);
 
     switch (opcode)
     {
     // lui
-    case 0x36:
+    case 0x37:
     {
+        uint64_t imm = (uint64_t)((int64_t)(inst & 0xfffff000));
+        state->x[rd] = imm;
 
+        RvcLog(state, LOG_DECODE, "lui %s, %d\n", RVABI[rd][LOG_ABI], ((inst >> 12) & 0xfffff));
         break;
     }
     // addi
@@ -249,11 +279,12 @@ RvcStatus RvcStep(RvcState *state, uint32_t elapsed_us)
         break;
     }
     default:
-
-        RvcLog(state, LOG_ERROR, "UNKNOWN OPCODE\n");
+    {
+        RvcLog(state, LOG_ERROR, "UNKNOWN OPCODE: %#02x\n", opcode);
         RvcLogRegs(state, LOG_ERROR && LOG_VERBOSE);
 
         return UnknownInstruction;
+    }
     }
 
     RvcLogRegs(state, LOG_REGS);

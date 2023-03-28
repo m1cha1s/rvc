@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -Wall -std=c99 -pedantic
+CFLAGS := -Wall -g -std=c99 -pedantic
 
 rvc_cli: main.o
 	$(CC) $^ -o $@

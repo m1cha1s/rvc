@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// #define LOG_LEVEL 1
-
 #include "rvc.h"
 
 uint8_t load(void *file, uint64_t addr)
@@ -40,9 +38,17 @@ int main(int argc, char *argv[])
     len = ftell(file);
     rewind(file);
 
-    RvcMemBus bus[] = {
-        {.base = 0, .len = len, .load = load, .store = NULL, .meta = (void *)file},
-        (RvcMemBus){NULL},
+    RvcMemBus prog = {
+        .base = 0,
+        .len = len,
+        .load = load,
+        .store = NULL,
+        .meta = (void *)file,
+    };
+
+    RvcMemBus *bus[] = {
+        &prog,
+        (RvcMemBus *)NULL,
     };
 
     RvcState state = (RvcState){
@@ -50,10 +56,11 @@ int main(int argc, char *argv[])
         .pc = 0,
         .log = stdlog,
         .logFlags = {
-            .abi = 1,
+            .abi = 0,
             .decode = 1,
             .error = 1,
-            .regs = 1,
+            .regs = 0,
+            .verbose = 1,
         },
     };
 
