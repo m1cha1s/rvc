@@ -3,6 +3,7 @@
 ## TODO:
 - [ ] Opcodes
     - [ ] RV32I
+        - [x] LUI
         - [ ] AUIPC
         - [ ] JAL
         - [ ] JALR
@@ -20,7 +21,7 @@
         - [ ] SB
         - [ ] SH
         - [ ] SW
-        - [ ] ADDI
+        - [x] ADDI
         - [ ] SLTI
         - [ ] SLTIU
         - [ ] XORI
@@ -29,7 +30,7 @@
         - [ ] SLLI
         - [ ] SRLI
         - [ ] SRAI
-        - [ ] ADD
+        - [x] ADD
         - [ ] SUB
         - [ ] SLL
         - [ ] SLT
