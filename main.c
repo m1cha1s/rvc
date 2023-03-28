@@ -49,7 +49,12 @@ int main(int argc, char *argv[])
         .bus = bus,
         .pc = 0,
         .log = stdlog,
-        .log_level = 1,
+        .logFlags = {
+            .abi = 1,
+            .decode = 1,
+            .error = 1,
+            .regs = 1,
+        },
     };
 
     while (1)

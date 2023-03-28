@@ -4,39 +4,39 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-static const char *RVABI[32] = {
-    "zero",
-    "ra",
-    "sp",
-    "gp",
-    "tp",
-    "t0",
-    "t1",
-    "t2",
-    "s0",
-    "s1",
-    "a0",
-    "a1",
-    "a2",
-    "a3",
-    "a4",
-    "a5",
-    "a6",
-    "a7",
-    "s2",
-    "s3",
-    "s4",
-    "s5",
-    "s6",
-    "s7",
-    "s8",
-    "s9",
-    "s10",
-    "s11",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
+static const char *RVABI[32][2] = {
+    {"x0", "zero"},
+    {"x1", "ra"},
+    {"x2", "sp"},
+    {"x3", "gp"},
+    {"x4", "tp"},
+    {"x5", "t0"},
+    {"x6", "t1"},
+    {"x7", "t2"},
+    {"x8", "s0"},
+    {"x9", "s1"},
+    {"x10", "a0"},
+    {"x11", "a1"},
+    {"x12", "a2"},
+    {"x13", "a3"},
+    {"x14", "a4"},
+    {"x15", "a5"},
+    {"x16", "a6"},
+    {"x17", "a7"},
+    {"x18", "s2"},
+    {"x19", "s3"},
+    {"x20", "s4"},
+    {"x21", "s5"},
+    {"x22", "s6"},
+    {"x23", "s7"},
+    {"x24", "s8"},
+    {"x25", "s9"},
+    {"x26", "s10"},
+    {"x27", "s11"},
+    {"x28", "t3"},
+    {"x29", "t4"},
+    {"x30", "t5"},
+    {"x31", "t6"},
 };
 
 typedef void (*RvcLogPrint)(char *);
@@ -44,7 +44,7 @@ typedef void (*RvcLogPrint)(char *);
 typedef uint8_t (*RvcMemBusLoad)(void *meta, uint64_t addr);
 typedef void (*RvcMemBusStore)(void *meta, uint64_t addr, uint8_t val);
 
-typedef struct RvcMemBus
+typedef struct _RvcMemBus
 {
     uint64_t base, len;
     void *meta;
@@ -52,24 +52,45 @@ typedef struct RvcMemBus
     RvcMemBusStore store;
 } RvcMemBus;
 
-typedef struct RvcState
+typedef struct _RvcLogFlags
+{
+    uint8_t warning : 1;
+    uint8_t error : 1;
+    uint8_t decode : 1;
+    uint8_t transaction : 1;
+    uint8_t regs : 1;
+    uint8_t abi : 1;
+    uint8_t verbose : 1;
+} RvcLogFlags;
+
+#define LOG_WARNING (state->logFlags.warning)
+#define LOG_ERROR (state->logFlags.error)
+#define LOG_DECODE (state->logFlags.decode)
+#define LOG_TRANSACTION (state->logFlags.transaction)
+#define LOG_REGS (state->logFlags.regs)
+#define LOG_ABI (state->logFlags.abi)
+#define LOG_VERBOSE (state->logFlags.verbose)
+
+typedef struct _RvcState
 {
     uint64_t x[32];
     uint64_t pc;
-    RvcMemBus *bus;  // NULL terminated
+
+    RvcMemBus *bus; // NULL terminated
+
     RvcLogPrint log; // NULL for disabled
-    int log_level;
+    RvcLogFlags logFlags;
 } RvcState;
 
-typedef enum RvcStatus
+typedef enum _RvcStatus
 {
     Ok,
     UnknownInstruction,
 } RvcStatus;
 
-static void RvcLog(RvcState *state, int min_log_level, const char *fmt, ...)
+static void RvcLog(RvcState *state, uint8_t flags, const char *fmt, ...)
 {
-    if (!state->log || state->log_level < min_log_level)
+    if (!state->log || !flags)
         return;
 
     char str[256] = {0};
@@ -84,16 +105,16 @@ static void RvcLog(RvcState *state, int min_log_level, const char *fmt, ...)
     state->log(str);
 }
 
-static void RvcLogRegs(RvcState *state, int min_log_level)
+static void RvcLogRegs(RvcState *state, uint8_t flags)
 {
-    if (!state->log || state->log_level < min_log_level)
+    if (!state->log || !flags)
         return;
 
-    RvcLog(state, min_log_level, "Registers:\n");
+    RvcLog(state, flags, "Registers:\n");
 
     for (int i = 0; i < 32; i += 2)
     {
-        RvcLog(state, min_log_level, " | %s: %#016x | %s: %#016x |\n", RVABI[i], state->x[i], RVABI[i + 1], state->x[i + 1]);
+        RvcLog(state, flags, " | %s: %#016x | %s: %#016x |\n", RVABI[i][LOG_ABI], state->x[i], RVABI[i + 1][LOG_ABI], state->x[i + 1]);
     }
 }
 
@@ -198,17 +219,23 @@ RvcStatus RvcStep(RvcState *state, uint32_t elapsed_us)
     uint8_t func4 = (inst >> 12) & 0x7;
     uint8_t func7 = (inst >> 25) & 0x7f;
 
-    RvcLog(state, 2, "Opcode: %#02x\n", opcode);
+    RvcLog(state, LOG_DECODE && LOG_VERBOSE, "Opcode: %#02x\n", opcode);
 
     switch (opcode)
     {
+    // lui
+    case 0x36:
+    {
+
+        break;
+    }
     // addi
     case 0x13:
     {
         uint64_t imm = (uint64_t)((int64_t)(inst & 0xfff00000) >> 20);
         state->x[rd] = state->x[rs1] + imm;
 
-        RvcLog(state, 1, "addi %s, %s, %d\n", RVABI[rd], RVABI[rs1], imm);
+        RvcLog(state, LOG_DECODE, "addi %s, %s, %d\n", RVABI[rd][LOG_ABI], RVABI[rs1][LOG_ABI], imm);
 
         break;
     }
@@ -217,20 +244,29 @@ RvcStatus RvcStep(RvcState *state, uint32_t elapsed_us)
     {
         state->x[rd] = state->x[rs1] + state->x[rs2];
 
-        RvcLog(state, 1, "add %s, %s, %s\n", RVABI[rd], RVABI[rs1], RVABI[rs2]);
+        RvcLog(state, LOG_DECODE, "add %s, %s, %s\n", RVABI[rd][LOG_ABI], RVABI[rs1][LOG_ABI], RVABI[rs2][LOG_ABI]);
 
         break;
     }
     default:
 
-        RvcLog(state, 1, "UNKNOWN OPCODE\n");
+        RvcLog(state, LOG_ERROR, "UNKNOWN OPCODE\n");
+        RvcLogRegs(state, LOG_ERROR && LOG_VERBOSE);
 
         return UnknownInstruction;
     }
 
-    RvcLogRegs(state, 3);
+    RvcLogRegs(state, LOG_REGS);
 
     return Ok;
 }
+
+#undef LOG_WARNING
+#undef LOG_ERROR
+#undef LOG_DECODE
+#undef LOG_TRANSACTION
+#undef LOG_REGS
+#undef LOG_ABI
+#undef LOG_VERBOSE
 
 #endif
